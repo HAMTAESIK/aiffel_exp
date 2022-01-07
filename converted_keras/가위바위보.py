@@ -1,19 +1,61 @@
-from keras.models import load_model
-from PIL import Image, ImageOps
+import cv2
 import numpy as np
-
-model = load_model('keras_model.h5')
-
-data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
-
-image = Image.open('<IMAGE_PATH>')
-size = (224, 224)
-image = ImageOps.fit(image, size, Image.ANTIALIAS)
-
-
-image_array = np.asarray(image)
-normalized_image_array = (image_array.astype(np.float32) / 127.0) - 1
-data[0] = normalized_image_array
-
-prediction = model.predict(data)
-print(prediction)
+from tensorflow.keras.models import load_model
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.preprocessing.image import img_to_array
+from PIL import ImageFont, ImageDraw, Image
+ 
+#%%
+model = load_model('model.h5')
+model.summary()
+ 
+# open webcam (웹캠 열기)
+webcam = cv2.VideoCapture(0)
+ 
+if not webcam.isOpened():
+    print("Could not open webcam")
+    exit()
+      
+# loop through frames
+while webcam.isOpened():
+    
+    # read frame from webcam 
+    status, frame = webcam.read()
+    
+    if not status:
+        break
+    
+    img = cv2.resize(frame, (224, 224), interpolation = cv2.INTER_AREA)
+    x = img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+ 
+    prediction = model.predict(x)
+    predicted_class = np.argmax(prediction[0]) # 예측된 클래스 0, 1, 2
+    print(prediction[0])
+    print(predicted_class)
+ 
+    
+    if predicted_class == 0:
+        me = "바위"
+    elif predicted_class == 1:
+        me = "보"        
+    elif predicted_class == 2:
+        me = "가위"
+                
+    # display
+    fontpath = "font/gulim.ttc"
+    font1 = ImageFont.truetype(fontpath, 100)
+    frame_pil = Image.fromarray(frame)
+    draw = ImageDraw.Draw(frame_pil)
+    draw.text((50, 50), me, font=font1, fill=(0, 0, 255, 3))
+    frame = np.array(frame_pil)
+    cv2.imshow('RPS', frame)
+        
+    # press "Q" to stop
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+    
+# release resources
+webcam.release()
+cv2.destroyAllWindows()   
